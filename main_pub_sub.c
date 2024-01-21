@@ -43,7 +43,7 @@ int main() {
     srand(time(NULL));
     TQueue queue;
 
-    const int max_size = 5;
+    const int max_size = 3;
     createQueue(&queue, max_size);
 
     int thread_idx = 0;
@@ -68,6 +68,7 @@ int main() {
         "rem_rysia",
         "abort"
     };
+    sleep(1);
     for(int i = 0; i < messages_count; i++) {
         if(strcmp(messages[i], "add") == 0) {
             pthread_create(&t[thread_idx++], NULL, listener, &queue);
