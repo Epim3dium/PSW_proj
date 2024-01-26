@@ -34,6 +34,7 @@ void* listener(void* arg) {
     pthread_t* me = malloc(sizeof(pthread_t));
     *me = pthread_self();
 
+    sleep(5);
     pthread_mutex_lock(&disp_mux);
         subscribe(queue, me);
         displayTab(my_id * INDENT_NEEDED);

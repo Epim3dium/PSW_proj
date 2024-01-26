@@ -108,6 +108,10 @@ static int update_missing_msgs(TQueueThreadNode* head, TQueueMsgNode* new_msg){
 
 void put(TQueue* queue, void* msg) {
     pthread_mutex_lock(&queue->mux);
+    if(queue->thread_count == 0) {
+        pthread_mutex_unlock(&queue->mux);
+        return;
+    }
     if(queue->size == 0) {
         TQueueMsgNode* new_msg_node = createMsgNode(msg, queue->thread_count);
         queue->front = new_msg_node;
