@@ -79,8 +79,8 @@ int main() {
                 printf("\t\t>!Removed rysia\n");
             }
         }else {
-            put(&queue, messages[i]);
             printf("\t\t>+Put %s\n",  messages[i]);
+            put(&queue, (void*)messages[i]);
         }
     }
     for(int i = 0; i < thread_idx; i++) {

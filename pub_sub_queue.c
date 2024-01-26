@@ -63,6 +63,9 @@ void unsubscribe(TQueue* queue, pthread_t* thread) {
         queue->front = queue->front->next;
         destroyMsgNode(temp);
         queue->size--;
+        if(queue->size < queue->max_size){
+            pthread_cond_broadcast(&queue->has_free_space);
+        }
     }
     pthread_mutex_unlock(&queue->mux);
 }
@@ -104,24 +107,23 @@ static int update_missing_msgs(TQueueThreadNode* head, TQueueMsgNode* new_msg){
 
 void put(TQueue* queue, void* msg) {
     pthread_mutex_lock(&queue->mux);
+    TQueueMsgNode* new_msg_node = createMsgNode(msg, queue->thread_count);
     if(queue->size == 0) {
-        TQueueMsgNode* new_msg_node = createMsgNode(msg, queue->thread_count);
         queue->front = new_msg_node;
         queue->back = new_msg_node;
         queue->size++;
         update_missing_msgs(queue->thread_head, new_msg_node);
-        pthread_mutex_unlock(&queue->mux);
         pthread_cond_broadcast(&queue->has_elements);
+        pthread_mutex_unlock(&queue->mux);
         return;
     }
     //no space
     while(queue->size >= queue->max_size) {
         pthread_cond_wait(&queue->has_free_space, &queue->mux);
     }
-    queue->size++;
-    TQueueMsgNode* new_msg_node = createMsgNode(msg, queue->thread_count);
     queue->back->next = new_msg_node;
     queue->back = new_msg_node;
+    queue->size++;
 
     //adding msg to these threads that didnt get it
     if(update_missing_msgs(queue->thread_head, new_msg_node)) {
@@ -134,14 +136,14 @@ void put(TQueue* queue, void* msg) {
 void* get(TQueue* queue, pthread_t* thread) {
     pthread_mutex_lock(&queue->mux);
     TQueueThreadNode* node = queue->thread_head;
-    //getting node
-        while(node != NULL && node->thread != thread) {
-            node = node->next;
-        }
-        if(node == NULL) {
-            pthread_mutex_unlock(&queue->mux);
-            return NULL;
-        }
+    //getting node with thread* arg
+    while(node != NULL && node->thread != thread) {
+        node = node->next;
+    }
+    if(node == NULL) {
+        pthread_mutex_unlock(&queue->mux);
+        return NULL;
+    }
 
     //waiting for message
     while(node->cur_msg == NULL) {
@@ -158,16 +160,13 @@ void* get(TQueue* queue, pthread_t* thread) {
         queue->front = queue->front->next;
         destroyMsgNode(temp);
         queue->size--;
+        if(queue->size < queue->max_size){
+            pthread_cond_broadcast(&queue->has_free_space);
+        }
     }
 
-    int hasFreeSpace = 0;
-    if(queue->size < queue->max_size){
-        hasFreeSpace = 1;
-    }
 
     pthread_mutex_unlock(&queue->mux);
-    if(hasFreeSpace)
-        pthread_cond_broadcast(&queue->has_free_space);
     return result;
 }
 int removeMsg(TQueue* queue, void* msg) {
@@ -195,6 +194,9 @@ int removeMsg(TQueue* queue, void* msg) {
             queue->size--;
             break;
         }
+    }
+    if(queue->size < queue->max_size){
+        pthread_cond_broadcast(&queue->has_free_space);
     }
     int result = 0;
     if(to_destroy != NULL) {
